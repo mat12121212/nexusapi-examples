@@ -1,0 +1,41 @@
+{
+  "name": "nexusapi-examples",
+  "version": "1.0.0",
+  "private": false,
+  "description": "NexusAPI MCP server plus Python, Node.js and n8n examples for generative AI agents",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "nexusapi-mcp": "src/mcp-server.mjs"
+  },
+  "files": [
+    "src/",
+    "python/",
+    "node/",
+    "n8n/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node src/mcp-server.mjs",
+    "test": "node scripts/smoke-test.mjs"
+  },
+  "keywords": [
+    "nexusapi",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "generative-ai",
+    "n8n"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0"
+  }
+}
