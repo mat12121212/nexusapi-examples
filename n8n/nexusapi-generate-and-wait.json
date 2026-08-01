@@ -1,0 +1,165 @@
+{
+  "name": "NexusAPI: generate and wait for result",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Run workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "model", "name": "model_name", "type": "string", "value": "kling-v3" },
+            { "id": "prompt", "name": "prompt", "type": "string", "value": "Cinematic aerial shot of a mountain lake at sunrise" },
+            { "id": "duration", "name": "duration", "type": "number", "value": 5 },
+            { "id": "ratio", "name": "aspect_ratio", "type": "string", "value": "16:9" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "input",
+      "name": "Generation input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://nexusapi.dev/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.NEXUS_API_KEY}}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { params: { model_name: $json.model_name, prompt: $json.prompt, duration: $json.duration, aspect_ratio: $json.aspect_ratio } } }}",
+        "options": {}
+      },
+      "id": "create-task",
+      "name": "Create NexusAPI task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 0]
+    },
+    {
+      "parameters": { "amount": 5 },
+      "id": "wait",
+      "name": "Wait 5 seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [700, 0],
+      "webhookId": "nexusapi-poll-wait"
+    },
+    {
+      "parameters": {
+        "url": "=https://nexusapi.dev/tasks/{{$json.task_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{$env.NEXUS_API_KEY}}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-task",
+      "name": "Get task status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "completed-condition", "leftValue": "={{ $json.status }}", "rightValue": "completed", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "completed",
+      "name": "Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1180, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "failed-condition", "leftValue": "={{ $json.status }}", "rightValue": "failed", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "failed",
+      "name": "Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1400, 120]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "done-task", "name": "task_id", "type": "string", "value": "={{ $json.task_id }}" },
+            { "id": "done-result", "name": "result", "type": "object", "value": "={{ $json.result }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "done",
+      "name": "Generation result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1400, -120]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=NexusAPI task {{$json.task_id}} failed: {{$json.error || 'Unknown error'}}"
+      },
+      "id": "stop-error",
+      "name": "Stop with task error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1640, 220]
+    }
+  ],
+  "connections": {
+    "Run workflow": { "main": [[{ "node": "Generation input", "type": "main", "index": 0 }]] },
+    "Generation input": { "main": [[{ "node": "Create NexusAPI task", "type": "main", "index": 0 }]] },
+    "Create NexusAPI task": { "main": [[{ "node": "Wait 5 seconds", "type": "main", "index": 0 }]] },
+    "Wait 5 seconds": { "main": [[{ "node": "Get task status", "type": "main", "index": 0 }]] },
+    "Get task status": { "main": [[{ "node": "Completed?", "type": "main", "index": 0 }]] },
+    "Completed?": {
+      "main": [
+        [{ "node": "Generation result", "type": "main", "index": 0 }],
+        [{ "node": "Failed?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Failed?": {
+      "main": [
+        [{ "node": "Stop with task error", "type": "main", "index": 0 }],
+        [{ "node": "Wait 5 seconds", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "c4fba8ce-8ee7-4db5-97df-5b690e750001",
+  "meta": { "templateCredsSetupCompleted": false },
+  "tags": []
+}
+
